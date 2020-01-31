@@ -23,8 +23,7 @@ while True:
 
     get_id = msg.decode("utf-8").split(' ')
     ID = int(get_id[0])
-
-    if msg_counter >= 500:
+    if msg_counter >= 1000:
         print("calculated buffer HMAC :", buffer_HMAC.hexdigest())
         send_to_controll = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         send_to_controll.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) 
@@ -36,7 +35,7 @@ while True:
         buffer_HMAC = hmac.new(b'test', b'', hashlib.sha256,)
         msg_counter = 0
 
-    if ID % 999 == 0:
+    if ID % 500 == 0:
         print("calculated single HMAC :", single_HMAC.hexdigest())
         send_to_controll = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         send_to_controll.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) 

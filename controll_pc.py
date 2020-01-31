@@ -8,7 +8,6 @@ port = 9000
 controll_pc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)                             
 controll_pc.bind((host, port))                                  
 controll_pc.listen(10)   
-
 buffer_HMAC = hmac.new(b'test', b'', hashlib.sha256,)
 single_HMAC = hmac.new(b'test', b'', hashlib.sha256,)
 msg_counter = 0
@@ -23,11 +22,12 @@ while True:
         print("buffer hmac_pc calcualted HMAC:     ", msg.decode("utf-8"))
         print("buffer controll_pc calculated HMAC: ", buffer_HMAC.hexdigest())
         if buffer_HMAC.hexdigest().encode("utf-8") == msg:
-            print("buffer HMAC match!")
+            print("buffer HMAC match \n")
+
             buffer_HMAC = hmac.new(b'test', b'', hashlib.sha256,)
             msg_counter = 0
         else:
-            print("buffer HMAC missmatch!")
+            print("buffer HMAC missmatch! \n")
             buffer_HMAC = hmac.new(b'test', b'', hashlib.sha256,)
             msg_counter = 0
 
@@ -35,13 +35,14 @@ while True:
         print("single hmac_pc calcualted HMAC:     ", msg.decode("utf-8"))
         print("single controll_pc calculated HMAC: ", single_HMAC.hexdigest())
         if single_HMAC.hexdigest().encode("utf-8") == msg:
-            print("single HMAC match!")
+            print("single HMAC match! \n")
             single_HMAC = hmac.new(b'test', b'', hashlib.sha256,)
         else:
-            print("single HMAC missmatch!")
+            print("single HMAC missmatch! \n")
             single_HMAC = hmac.new(b'test', b'', hashlib.sha256,)
+
+
     else:
-       # print("Message from the PMU: ", msg.decode("utf-8"))
         buffer_HMAC.update(msg)
+
     msg_counter = msg_counter + 1
-    #clientsocket.close()
