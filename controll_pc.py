@@ -12,27 +12,29 @@ controll_pc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 controll_pc.bind((host, port))                                  
 controll_pc.listen(10)   
 
-msg_counter = 0
-q = 2971
-g = 3
+msg_counter = 0                                         # Counter for the number of received messages from the PMU
+q = 2971                                                # Diffe-Hellman public parameter
+g = 3                                                   # Diffe-Hellman public parameter
+key_exchange = True                                     # used to initaiate DH key exhange
 
 
-def BBS(seed):
-    key_length = 254        
-    q = 32452843
+
+def BBS(seed):                                          # Blum Blum Shib algorithm to generate cryptographicly secure pseudorandom number generator
+    key_length = 254                                    # Algorithm taken from Cryptography and Network Security Principles and Practices, 
+    q = 32452843                                        # Fourth Edition Cryptography and Network Security Principles and Practices, Fourth Edition
     p = 15485863
     M = q*p 
     key = ''
-    for i in range(0, key_length):  #BBS formumla realization
+    for i in range(0, key_length):                      #BBS formumla realization
         seed = (seed**2)%M
-        bit = seed & 1              #Bit selection method; keeping only the LSB
+        bit = seed & 1                                  #Bit selection method; keeping only the LSB
         key += str(bit)
-    key = hex(int(key, 2))          #Transforming the binary key to hex-dec
+    key = hex(int(key, 2))                              #Transforming the binary key to hex-dec
     return key
 
 
-Z = True
-while Z:
+
+while key_exchange:
     clientsocket,addr = controll_pc.accept()
     msg = clientsocket.recv(1024)
     
@@ -41,7 +43,7 @@ while Z:
         DH = msg.decode("utf-8").split(' ')                             # DH[1] = hmac pc public key
         private_key = randrange(10000)                                  # Controll_PC private key
         public_key_controll = (g ** private_key) % q                    # Controll_PC public key
-        print("public key = ", public_key_controll)
+        print("public key calculated and sent to HMAC PC ")
 
         send_key = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         send_key.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) 
@@ -51,43 +53,48 @@ while Z:
 
         HMAC_PK = int(DH[1])                                            # hmac pc public key
         shared_session_key = (HMAC_PK ** private_key) % q               # Shared secret key, 
-        key = bytes(BBS(shared_session_key), "latin-1")                 # Generate a more secure key with blumblumshub, session key as seed
-        print("Shared sesion key = ", key)
-        buffer_HMAC = hmac.new(key, b'', hashlib.sha256,)
-        single_HMAC = hmac.new(key, b'', hashlib.sha256,)
-        Z = False
+        key = bytes(BBS(shared_session_key), "latin-1")                 # Generate a longer and more secure key with blumblumshub algorithm, session key as seed
+        print("Shared session key established! ")
+        buffer_HMAC = hmac.new(key, b'', hashlib.sha256,)               # Set BBS generated key as HMAC key
+        single_HMAC = hmac.new(key, b'', hashlib.sha256,)               # Set BBS generated key as HMAC key
+        key_exchange = False
 
-
+# Handels messages from the PMU and hmacs from the HMAC pc 
 while True:
     clientsocket,addr = controll_pc.accept()
-    #print("Got a connection from %s" % str(addr))
     msg = clientsocket.recv(1024)
 
-    if addr[1] == 8052 and msg_counter >= 500:
+
+    if addr[1] == 8052 and msg_counter >= 500:                                      # Checks if the HMAC for the last 1000 PMU messages match
         print("buffer hmac_pc calcualted HMAC:     ", msg.decode("utf-8"))
         print("buffer controll_pc calculated HMAC: ", buffer_HMAC.hexdigest())
         if buffer_HMAC.hexdigest().encode("utf-8") == msg:
-            print("buffer HMAC match \n")
-
-            buffer_HMAC = hmac.new(key, b'', hashlib.sha256,)
+            print("buffer HMAC match \n")                                           # Print if match
+            buffer_HMAC = hmac.new(key, b'', hashlib.sha256,)                       # Resets the hmac
             msg_counter = 0
         else:
-            print("buffer HMAC missmatch! \n")
-            buffer_HMAC = hmac.new(key, b'', hashlib.sha256,)
+            print("buffer HMAC missmatch! \n")                                      # Print if missmatch
+            buffer_HMAC = hmac.new(key, b'', hashlib.sha256,)                       # Resets the hmac
             msg_counter = 0
 
-    elif addr[1] == 8051:
-        print("single hmac_pc calcualted HMAC:     ", msg.decode("utf-8"))
+    elif addr[1] == 8051:                                                           # Receive single message hmacs from the HMAC PC
+        print("single hmac_pc calcualted HMAC:     ", msg.decode("utf-8"))          
         print("single controll_pc calculated HMAC: ", single_HMAC.hexdigest())
-        if single_HMAC.hexdigest().encode("utf-8") == msg:
-            print("single HMAC match! \n")
-            single_HMAC = hmac.new(key, b'', hashlib.sha256,)
+        if single_HMAC.hexdigest().encode("utf-8") == msg:                          # Check if the hmac for the single message matches
+            print("single HMAC match! \n")                                          # print if match
+            single_HMAC = hmac.new(key, b'', hashlib.sha256,)                       # Resets the hmac
         else:
-            print("single HMAC missmatch! \n")
-            single_HMAC = hmac.new(key, b'', hashlib.sha256,)
+            print("single HMAC missmatch! \n")                                      # print if missmatch
+            single_HMAC = hmac.new(key, b'', hashlib.sha256,)                       # Resets the hmac
 
 
-    else:
-        buffer_HMAC.update(msg)
+    else:                                                                           # If the controll PC receives data from the PMU do:
+        get_id = msg.decode("utf-8").split(' ')                                     # Split the message to extract the PMU-message ID
+        ID = int(get_id[0])                                                         # message ID
+        if ID % 500 == 0:                                                           
+            single_HMAC.update(msg)                                                 # calculate a hmac for a single messages. Does this for each message that has a id that is dividable by 500
+            print("hmac for ID: ", ID, " calculated")
 
-    msg_counter = msg_counter + 1
+        buffer_HMAC.update(msg)                                                     # Updates the hmac for each message received from the PMU
+
+    msg_counter = msg_counter + 1                                                   # Update message counter
