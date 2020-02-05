@@ -39,7 +39,7 @@ while key_exchange:
     if DH == True:
         private_key = randrange(10000)                                                      # Generate private key
         public_key_hmac = (g ** private_key) % q                                            # Generate public key
-        print("public and sent to Controll PC")
+        print("Public and sent to Controll PC")
 
         send_to_controll = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         send_to_controll.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) 
@@ -53,39 +53,42 @@ while key_exchange:
         controll_PK = int(msg.decode("utf-8"))                                              # DH[1] = controll pc public key
         shared_session_key = (controll_PK ** private_key) % q                               # Shared secret key, 
         key = bytes(BBS(shared_session_key), "latin-1")                                     # Generate a longer and more secure key with blumblumshub algorithm, session key as seed
-        print("Shared sesion established! ")
+        print("Shared sesion established! \n")
         buffer_HMAC = hmac.new(key, b'', hashlib.sha256,)                                   # Set BBS generated key as HMAC key
         single_HMAC = hmac.new(key, b'', hashlib.sha256,)                                   # Set BBS generated key as HMAC key
         key_exchange = False
-    
-# Handels messages from the PMU
+
+
+# Handels messages from the PMU and hmacs to the controll pc
 while True:
     clientsocket,addr = hmac_pc.accept()
     msg = clientsocket.recv(1024)
-    buffer_HMAC.update(msg)
-
+    
+# PMU messages
     get_id = msg.decode("utf-8").split(' ')                                                 # Split the message to extract the PMU-message ID
-    ID = int(get_id[0])                                                                     # PMU message ID
+    ID = int(get_id[0]) 
+    ID = ID + 250                                                                           # PMU message ID
+    buffer_HMAC.update(msg)
+    msg_counter = msg_counter + 1                                                           # Increments the message counter.
 
-    if msg_counter >= 1000:                                                                 # Generates a HMAC based on the 1000 last PMU messages
-        print("calculated buffer HMAC :", buffer_HMAC.hexdigest())
+# Buffer hmac messages
+    if msg_counter == 500:                                                                  # Generates a HMAC based on the 1000 last PMU messages
+        print("Calculated Buffer HMAC :", buffer_HMAC.hexdigest(), "\n")
         send_to_controll = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         send_to_controll.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) 
         send_to_controll.bind((host, 8052))
         send_to_controll.connect((host, controll_pc_port))
         send_to_controll.send(buffer_HMAC.hexdigest().encode("utf-8"))                      # Sends the HMAC to the controll PC
-        buffer_HMAC = hmac.new(b'test', b'', hashlib.sha256,)                               # Resets the HMAC
+        buffer_HMAC = hmac.new(key, b'', hashlib.sha256,)                               # Resets the HMAC
         msg_counter = 0                                                                     # Resets the message counter
 
+# Single hmac messages
     if ID % 500 == 0:                                                                       # Sends a HMAC based on an indivudual PMU message. Does this for each 500th message (uses ID to identify the message)
-        print("calculated single HMAC :", single_HMAC.hexdigest())
-        print("for ID: ", ID)
+        single_HMAC = hmac.new(key, b'', hashlib.sha256,)                                   # Resets the HMAC
         single_HMAC.update(msg)
+        print("Calculated Single HMAC :", single_HMAC.hexdigest(), "for msg with ID: ", ID, "\n")
         send_to_controll = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         send_to_controll.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) 
         send_to_controll.bind((host, 8051))
         send_to_controll.connect((host, controll_pc_port))
         send_to_controll.send(single_HMAC.hexdigest().encode("utf-8"))                      # Sends the HMAC to the controll PC
-        single_HMAC = hmac.new(b'test', b'', hashlib.sha256,)                               # Resets the HMAC
-        
-    msg_counter = msg_counter + 1                                                           # Increments the message counter. 
