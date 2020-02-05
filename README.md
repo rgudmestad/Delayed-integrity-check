@@ -14,4 +14,4 @@ For å teste koden, start først hmac-py og controll-py, deretter PMU.py (hver f
 
 outputen ser slik ut:
 
-![output](https://user-images.githubusercontent.com/52523429/73828618-e4433b80-4801-11ea-9a65-4e7210ffc26d.png)
+![output](https://user-images.githubusercontent.com/52523429/73828792-33896c00-4802-11ea-8f2d-324bef229a57.png)
