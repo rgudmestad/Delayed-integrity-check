@@ -7,6 +7,8 @@ controll_pc_port = 9000
 #x = True
 messages = []
 
+# PMU.py sends a message to both hmac_pc and controll_pc each 0.015 second. 
+# Each message consists of:  {"id + test"} e.g. {1 test}, {2 test} etc...
 for i in range(0, 2000):
     value = str(i) + " test"
     pmu_to_hmac_pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

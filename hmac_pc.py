@@ -3,6 +3,8 @@ import hmac
 import hashlib
 from random import randrange
 
+
+# sets up and binds an IP address/Port to hmac_pc
 host = socket.gethostname()                           
 port = 8000            
 hmac_pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
@@ -36,27 +38,27 @@ while key_exchange:
     clientsocket,addr = hmac_pc.accept()
     msg = clientsocket.recv(1024)
     
-    if DH == True:
+    if DH == True:                                                                          # Checks if a public key has been created and sent to controll_PC, if not DO:
         private_key = randrange(10000)                                                      # Generate private key
         public_key_hmac = (g ** private_key) % q                                            # Generate public key
         print("Public and sent to Controll PC")
 
-        send_to_controll = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        send_to_controll.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) 
-        send_to_controll.bind((host, 8052))
-        send_to_controll.connect((host, controll_pc_port))
-        HMAC_PK = "key " + str(public_key_hmac)
+        send_to_controll = socket.socket(socket.AF_INET, socket.SOCK_STREAM)                # sets up and binds an IP address/Port used to send the public key to controll_PC
+        send_to_controll.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)              # sets up and binds an IP address/Port used to send the public key to controll_PC
+        send_to_controll.bind((host, 8052))                                                 # Binds an IP address/Port used to send the public key to controll_PC
+        send_to_controll.connect((host, controll_pc_port))                                  # Establish connection to controll_PC
+        HMAC_PK = "key " + str(public_key_hmac)                                             # Create the message 'key public hmac key' 
         send_to_controll.send(HMAC_PK.encode("utf-8"))                                      # Send public key to controll PC
-        DH = False
+        DH = False  
 
-    if addr[1] == 9050:
-        controll_PK = int(msg.decode("utf-8"))                                              # DH[1] = controll pc public key
+    if addr[1] == 9050:                                                                     # Checks if controll_pc have answered with a public key, if it has, DO:
+        controll_PK = int(msg.decode("utf-8"))                                              # Exctract the controll_pc public key and create a shared session key
         shared_session_key = (controll_PK ** private_key) % q                               # Shared secret key, 
         key = bytes(BBS(shared_session_key), "latin-1")                                     # Generate a longer and more secure key with blumblumshub algorithm, session key as seed
         print("Shared sesion established! \n")
         buffer_HMAC = hmac.new(key, b'', hashlib.sha256,)                                   # Set BBS generated key as HMAC key
         single_HMAC = hmac.new(key, b'', hashlib.sha256,)                                   # Set BBS generated key as HMAC key
-        key_exchange = False
+        key_exchange = False    
 
 
 # Handels messages from the PMU and hmacs to the controll pc
@@ -68,7 +70,7 @@ while True:
     get_id = msg.decode("utf-8").split(' ')                                                 # Split the message to extract the PMU-message ID
     ID = int(get_id[0]) 
     ID = ID + 250                                                                           # PMU message ID
-    buffer_HMAC.update(msg)
+    buffer_HMAC.update(msg)                                                                 # Update the hmac with the new PMU message
     msg_counter = msg_counter + 1                                                           # Increments the message counter.
 
 # Buffer hmac messages
@@ -79,7 +81,7 @@ while True:
         send_to_controll.bind((host, 8052))
         send_to_controll.connect((host, controll_pc_port))
         send_to_controll.send(buffer_HMAC.hexdigest().encode("utf-8"))                      # Sends the HMAC to the controll PC
-        buffer_HMAC = hmac.new(key, b'', hashlib.sha256,)                               # Resets the HMAC
+        buffer_HMAC = hmac.new(key, b'', hashlib.sha256,)                                   # Resets the HMAC
         msg_counter = 0                                                                     # Resets the message counter
 
 # Single hmac messages
