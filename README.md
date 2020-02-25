@@ -4,7 +4,7 @@ Figuren visser hvordan løsningen fungerer:
 
   - PMU.py representerer PMU-en som sender meldinger.
   
-  - hmac_PC.py representerer en datamaskin som subscriber på meldinger fra PMU-en, og lager signaturer basert på disse meldingene
+  - hmac_PC.py representerer en datamaskin som subscriber på meldinger fra PMU-en, og lager HMAC basert på disse meldingene
   
   - controll_pc.py representerer en datamaskin som også subcriber på meldinger fra PMU-en. Den får også HMAC-er fra hmac_PC som den           sjekker opp mot hmac-ene som den selv har generert, basert på det same PMU meldingene.
   
