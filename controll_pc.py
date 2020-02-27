@@ -13,6 +13,14 @@ controll_pc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 controll_pc.bind((host, port))                                  
 controll_pc.listen(10)   
 
+
+localIP     = "127.0.0.1"
+localPort   = 9001
+controll_UDP = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+controll_UDP.bind((localIP, localPort))
+controll_UDP = controll_UDP.recvfrom(1024)
+
+
 msg_counter = 0                                         # Counter for the number of received messages from the PMU
 q = 2971                                                # Diffe-Hellman public parameter
 g = 3                                                   # Diffe-Hellman public parameter
@@ -38,7 +46,7 @@ while key_exchange:
     clientsocket,addr = controll_pc.accept()
     msg = clientsocket.recv(1024)
     
-    if addr[1] == 8052 and msg.decode("utf-8").__contains__("key"):         # Listens for a message from hmac_pc, with the word "key" in it
+    if addr[1] == 8053 and msg.decode("utf-8").__contains__("key"):         # Listens for a message from hmac_pc, with the word "key" in it
         DH = msg.decode("utf-8").split(' ')                                 # DH[1] = hmac pc public key
         private_key = randrange(10000)                                      # Controll_PC private key
         public_key_controll = (g ** private_key) % q                        # Controll_PC public key
@@ -61,24 +69,25 @@ while key_exchange:
 
 # Handels messages from the PMU and hmacs from the HMAC pc 
 while True:
-    clientsocket,addr = controll_pc.accept()
-    msg = clientsocket.recv(1024)
+    controll_UDP = controll_UDP.recvfrom(1024)
+    msg = format(controll_UDP[0])
+    addr = controll_UDP[1]
 
 # PMU messages 
     if addr[1] != 8051:
         if addr[1] != 8052:                                                             # If the controll PC receives data from the PMU do:
-            get_id = msg.decode("utf-8").split(' ')                                     # Split the message to extract the PMU-message ID
-            ID = int(get_id[0])                                                         # message ID
-            ID = ID + 250                                                               # Adds 250 just so that single and bugger hmac are not generated at the same time
-            buffer_HMAC.update(msg)                                                     # Updates the hmac for each message received from the PMU
-            msg_counter = msg_counter + 1                                               # Update message counter
+            get_id = msg.split(' ')                                                                 # Split the message to extract the PMU-message ID
+            ID = int(get_id[0].replace("b'", ""))
+            ID = ID + 250                                                                           # PMU message ID
+            buffer_HMAC.update(msg.encode("utf-8"))                                                 # Update the hmac with the new PMU message
+            msg_counter = msg_counter + 1                                              # Update message counter
             if ID % 500 == 0:                                                           # Generates a single hmac for each 500th message
                 single_HMAC = hmac.new(key, b'', hashlib.sha256,)                       # Reset the hmac
-                single_HMAC.update(msg)                                                 # calculate a hmac for a single messages
+                single_HMAC.update(msg.encode("utf-8"))                                                 # calculate a hmac for a single messages
                 print("HMAC for ID: ", ID, " calculated")
 
 # Buffer hmac messages
-    if addr[1] == 8052 and msg_counter == 500:                                                                 # Checks if the HMAC for the last 1000 PMU messages match
+    if addr[1] == 8052: #and msg_counter == 500:                                                                 # Checks if the HMAC for the last 1000 PMU messages match
         print("HMAC's for the last 500 messages:")
         print("HMAC_PC calcualted HMAC:     ", msg.decode("utf-8"))
         print("Controll_PC calculated HMAC: ", buffer_HMAC.hexdigest())

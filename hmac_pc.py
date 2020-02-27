@@ -13,6 +13,17 @@ hmac_pc.bind((host, port))
 hmac_pc.listen(10)
 controll_pc_port = 9000
 
+
+hmac_UDP = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+hmac_UDP.bind((host, 8001))
+hmac_UDP = hmac_UDP.recvfrom(1024)
+
+send_single = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+send_single.bind((host, 8051))
+send_buffer = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+send_buffer.bind((host, 8052))
+
+
 msg_counter = 0                                         # Counter for the number of received messages from the PMU
 q = 2971                                                # Diffe-Hellman public parameter
 g = 3                                                   # Diffe-Hellman public parameter
@@ -35,21 +46,20 @@ def BBS(seed):                                          # Blum Blum Shib algorit
 
 # Diffe-Hellman key exchange:
 while key_exchange:
-    clientsocket,addr = hmac_pc.accept()
-    msg = clientsocket.recv(1024)
-    
-    if DH == True:                                                                          # Checks if a public key has been created and sent to controll_PC, if not DO:
+    if DH == True:                                                                         # Checks if a public key has been created and sent to controll_PC, if not DO:
         private_key = randrange(10000)                                                      # Generate private key
         public_key_hmac = (g ** private_key) % q                                            # Generate public key
         print("Public and sent to Controll PC")
-
         send_to_controll = socket.socket(socket.AF_INET, socket.SOCK_STREAM)                # sets up and binds an IP address/Port used to send the public key to controll_PC
         send_to_controll.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)              # sets up and binds an IP address/Port used to send the public key to controll_PC
-        send_to_controll.bind((host, 8052))                                                 # Binds an IP address/Port used to send the public key to controll_PC
+        send_to_controll.bind((host, 8053))                                                 # Binds an IP address/Port used to send the public key to controll_PC
         send_to_controll.connect((host, controll_pc_port))                                  # Establish connection to controll_PC
         HMAC_PK = "key " + str(public_key_hmac)                                             # Create the message 'key public hmac key' 
         send_to_controll.send(HMAC_PK.encode("utf-8"))                                      # Send public key to controll PC
         DH = False  
+    
+    clientsocket,addr = hmac_pc.accept()
+    msg = clientsocket.recv(1024)
 
     if addr[1] == 9050:                                                                     # Checks if controll_pc have answered with a public key, if it has, DO:
         controll_PK = int(msg.decode("utf-8"))                                              # Exctract the controll_pc public key and create a shared session key
@@ -63,34 +73,29 @@ while key_exchange:
 
 # Handels messages from the PMU and hmacs to the controll pc
 while True:
-    clientsocket,addr = hmac_pc.accept()
-    msg = clientsocket.recv(1024)
+    hmac_UDP = hmac_UDP.recvfrom(1024)
+    msg = format(hmac_UDP[0])
+    addr = hmac_UDP[1]
     
 # PMU messages
-    get_id = msg.decode("utf-8").split(' ')                                                 # Split the message to extract the PMU-message ID
-    ID = int(get_id[0]) 
+    get_id = msg.split(' ')                                                                 # Split the message to extract the PMU-message ID
+    ID = int(get_id[0].replace("b'", ""))
     ID = ID + 250                                                                           # PMU message ID
-    buffer_HMAC.update(msg)                                                                 # Update the hmac with the new PMU message
+    buffer_HMAC.update(msg.encode("utf-8"))                                                 # Update the hmac with the new PMU message
     msg_counter = msg_counter + 1                                                           # Increments the message counter.
 
 # Buffer hmac messages
     if msg_counter == 500:                                                                  # Generates a HMAC based on the 1000 last PMU messages
         print("Calculated Buffer HMAC :", buffer_HMAC.hexdigest(), "\n")
-        send_to_controll = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        send_to_controll.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) 
-        send_to_controll.bind((host, 8052))
-        send_to_controll.connect((host, controll_pc_port))
-        send_to_controll.send(buffer_HMAC.hexdigest().encode("utf-8"))                      # Sends the HMAC to the controll PC
+        buff = str.encode(buffer_HMAC.hexdigest())
+        send_buffer.sendto(buff, host, 9001)
         buffer_HMAC = hmac.new(key, b'', hashlib.sha256,)                                   # Resets the HMAC
         msg_counter = 0                                                                     # Resets the message counter
 
 # Single hmac messages
     if ID % 500 == 0:                                                                       # Sends a HMAC based on an indivudual PMU message. Does this for each 500th message (uses ID to identify the message)
         single_HMAC = hmac.new(key, b'', hashlib.sha256,)                                   # Resets the HMAC
-        single_HMAC.update(msg)
-        print("Calculated Single HMAC :", single_HMAC.hexdigest(), "for msg with ID: ", ID, "\n")
-        send_to_controll = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        send_to_controll.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) 
-        send_to_controll.bind((host, 8051))
-        send_to_controll.connect((host, controll_pc_port))
-        send_to_controll.send(single_HMAC.hexdigest().encode("utf-8"))                      # Sends the HMAC to the controll PC
+        single_HMAC.update(msg.encode("utf-8"))
+        print("Calculated Single HMAC :", single_HMAC.hexdigest(), "for msg with ID: ", ID, "\n")       
+        single = str.encode(single_HMAC.hexdigest())
+        send_single.sendto(single,host, 9001)
