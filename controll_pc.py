@@ -65,19 +65,20 @@ while True:
     msg = clientsocket.recv(1024)
 
 # PMU messages 
-    if addr[1] != 8051 or if addr[1] != 8052:                                       # If the controll PC receives data from the PMU do:
-        get_id = msg.decode("utf-8").split(' ')                                     # Split the message to extract the PMU-message ID
-        ID = int(get_id[0])                                                         # message ID
-        ID = ID + 250                                                               # Adds 250 just so that single and bugger hmac are not generated at the same time
-        buffer_HMAC.update(msg)                                                     # Updates the hmac for each message received from the PMU
-        msg_counter = msg_counter + 1                                               # Update message counter
-        if ID % 500 == 0:                                                           # Generates a single hmac for each 500th message
-            single_HMAC = hmac.new(key, b'', hashlib.sha256,)                       # Reset the hmac
-            single_HMAC.update(msg)                                                 # calculate a hmac for a single messages
-            print("HMAC for ID: ", ID, " calculated")
+    if addr[1] != 8051:
+        if addr[1] != 8052:                                                             # If the controll PC receives data from the PMU do:
+            get_id = msg.decode("utf-8").split(' ')                                     # Split the message to extract the PMU-message ID
+            ID = int(get_id[0])                                                         # message ID
+            ID = ID + 250                                                               # Adds 250 just so that single and bugger hmac are not generated at the same time
+            buffer_HMAC.update(msg)                                                     # Updates the hmac for each message received from the PMU
+            msg_counter = msg_counter + 1                                               # Update message counter
+            if ID % 500 == 0:                                                           # Generates a single hmac for each 500th message
+                single_HMAC = hmac.new(key, b'', hashlib.sha256,)                       # Reset the hmac
+                single_HMAC.update(msg)                                                 # calculate a hmac for a single messages
+                print("HMAC for ID: ", ID, " calculated")
 
 # Buffer hmac messages
-    if addr[1] == 8052 and msg_counter == 500:                                          # Checks if the HMAC for the last 1000 PMU messages match
+    if addr[1] == 8052 and msg_counter == 500:                                                                 # Checks if the HMAC for the last 1000 PMU messages match
         print("HMAC's for the last 500 messages:")
         print("HMAC_PC calcualted HMAC:     ", msg.decode("utf-8"))
         print("Controll_PC calculated HMAC: ", buffer_HMAC.hexdigest())
