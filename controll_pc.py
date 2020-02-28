@@ -4,7 +4,7 @@ import hashlib
 from random import randrange
 import math
 
-# sets up and binds an IP address/Port to controll_pc
+# sets up and binds an IP address/Port to hmac_pc for Key distribution, Uses TCP
 controll_pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
 host = socket.gethostname()                           
 port = 9000        
@@ -13,30 +13,26 @@ controll_pc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 controll_pc.bind((host, port))                                  
 controll_pc.listen(10)   
 
+controll_UDP = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)     # Controll_pc UDP socket
+controll_UDP.bind(("127.0.0.1", 9001))                                          # Address of the UDP lister for controll PC
+PMU_msg = controll_UDP.recvfrom(1024)                                           # Listen for PMU messages
 
-controll_UDP = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-controll_UDP.bind(("127.0.0.1", 9001))
-PMU_msg = controll_UDP.recvfrom(1024)
+msg_counter = 0                                                                 # Counter for the number of received messages from the PMU
+q = 2971                                                                        # Diffe-Hellman public parameter
+g = 3                                                                           # Diffe-Hellman public parameter
+key_exchange = True                                                             # Used to initaiate DH key exhange
 
-
-
-msg_counter = 0                                         # Counter for the number of received messages from the PMU
-q = 2971                                                # Diffe-Hellman public parameter
-g = 3                                                   # Diffe-Hellman public parameter
-key_exchange = True                                     # Used to initaiate DH key exhange
-
-
-def BBS(seed):                                          # Blum Blum Shib algorithm to generate cryptographicly secure pseudorandom number generator
-    key_length = 254                                    # Algorithm taken from Cryptography and Network Security Principles and Practices, 
-    q = 32452843                                        # Fourth Edition Cryptography and Network Security Principles and Practices, Fourth Edition
+def BBS(seed):                                                                  # Blum Blum Shib algorithm to generate cryptographicly secure pseudorandom number generator
+    key_length = 254                                                            # Algorithm taken from Cryptography and Network Security Principles and Practices, 
+    q = 32452843                                                                # Fourth Edition Cryptography and Network Security Principles and Practices, Fourth Edition
     p = 15485863
     M = q*p 
     key = ''
-    for i in range(0, key_length):                      #BBS formumla realization
+    for i in range(0, key_length):                                              #BBS formumla realization
         seed = (seed**2)%M
-        bit = seed & 1                                  #Bit selection method; keeping only the LSB
+        bit = seed & 1                                                          #Bit selection method; keeping only the LSB
         key += str(bit)
-    key = hex(int(key, 2))                              #Transforming the binary key to hex-dec
+    key = hex(int(key, 2))                                                      #Transforming the binary key to hex-dec
     return key
 
 
@@ -65,40 +61,37 @@ while key_exchange:
         single_HMAC = hmac.new(key, b'', hashlib.sha256,)                   # Set BBS generated key as HMAC key
         key_exchange = False
 
-
 # Handels messages from the PMU and hmacs from the HMAC pc 
 while True:
-    datagram = controll_UDP.recvfrom(1024)
-    msg = format(datagram[0])
-    addr = format(datagram[1])
-    port = addr.split(" ")
-    msg_type = msg.split(" ")
+    datagram = controll_UDP.recvfrom(1024)                                              # Listens for UDP messages from the pmu and hmac_pc
+    msg = format(datagram[0])                                                           # Msg payload                     
+    msg_type = msg.split(" ")                                                           # splitt the message into a list: [buffer/single/id, hmac/GOOSE]
 
-    if msg_type[0].__contains__("buffer"):
-        hmac_buffer = format(msg_type[1]).replace("'","")
+    if msg_type[0].__contains__("buffer"):                                              # Checks if the message is a buffer hmac
+        hmac_buffer = format(msg_type[1]).replace("'","")                               # Message formating
         print("HMAC's for the last 500 messages:")
         print("HMAC_PC calcualted HMAC:     ", hmac_buffer)
         print("Controll_PC calculated HMAC: ", buffer_HMAC.hexdigest())
-        if buffer_HMAC.hexdigest() == hmac_buffer:                                             # Check if mac_pc and controll_pc have generated identical hmac's
+        if buffer_HMAC.hexdigest() == hmac_buffer:                                      # Check if hmac_pc and controll_pc have generated identical hmac's
             print("Buffer HMAC match \n")                                               # Print if match
         else:
             print("Buffer HMAC missmatch! \n")                                          # Print if missmatch
         buffer_HMAC = hmac.new(key, b'', hashlib.sha256,)                               # Resets the hmac
-        msg_counter = 0
-        continue
+        msg_counter = 0                                                                 # Reset msg counter
+        continue                                                                        # Jump to next iteration
 
-    if msg_type[0].__contains__("single"):
-        hmac_single = format(msg_type[1]).replace("'","")                                      # Receive single message hmacs from the HMAC PC
+    if msg_type[0].__contains__("single"):                                              # Checks if the message is a single hmac
+        hmac_single = format(msg_type[1]).replace("'","")                               # Message formating
         print("Single hmac_pc calcualted HMAC:     ", hmac_single)          
         print("Single controll_pc calculated HMAC: ", single_HMAC.hexdigest())
-        if single_HMAC.hexdigest() == hmac_single:                                             # Check if mac_pc and controll_pc have generated identical hmac's
+        if single_HMAC.hexdigest() == hmac_single:                                      # Check if mac_pc and controll_pc have generated identical hmac's
             print("Single HMAC match! \n")                                              # print if match                
         else:
             print("Single HMAC missmatch! \n")
         continue    
 
-    else:                                                                               # Split the message to extract the PMU-message ID
-        ID = int(msg_type[0].replace("b'", ""))
+    else:                                                                               # PMU message handler
+        ID = int(msg_type[0].replace("b'", ""))                                         # Split the message to extract the PMU-message ID
         ID = ID + 250                                                                   # PMU message ID
         buffer_HMAC.update(msg.encode("utf-8"))                                         # Update the hmac with the new PMU message
         msg_counter = msg_counter + 1                                                   # Update message counter

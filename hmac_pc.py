@@ -3,7 +3,7 @@ import hmac
 import hashlib
 from random import randrange
 
-# sets up and binds an IP address/Port to hmac_pc
+# sets up and binds an IP address/Port to hmac_pc for Key distribution, Uses TCP
 host = socket.gethostname()                                   
 hmac_pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
 hmac_pc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)                             
@@ -12,10 +12,10 @@ hmac_pc.listen(10)
 controll_pc_port = 9000
 
 
-controll_address =  ("127.0.0.1", 9001)
-hmac_UDP = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-hmac_UDP.bind(("127.0.0.1", 8001))
-PMU_msg = hmac_UDP.recvfrom(1024)
+controll_address =  ("127.0.0.1", 9001) 1                                   # address of the UDP lister for controll PC
+hmac_UDP = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)     # hmac_pc UDP socket
+hmac_UDP.bind(("127.0.0.1", 8001))                                          # Binds the port/ip
+PMU_msg = hmac_UDP.recvfrom(1024)                                           # Listens for messages from the PMU
 
 
 
@@ -66,15 +66,15 @@ while key_exchange:
         key_exchange = False    
 
 
-# Handels messages from the PMU and hmacs to the controll pc
+# Handels messages from the PMU
 while True:
-    datagram = hmac_UDP.recvfrom(1024)
-    msg = format(datagram[0])
-    addr = format(datagram[1])
+    datagram = hmac_UDP.recvfrom(1024)                                                      # listens for UDP messages from the pmu
+    msg = format(datagram[0])                                                               # msg = the msg payload
+    addr = format(datagram[1])                                                              # addr = (ip, port)
     
 # PMU messages
     get_id = msg.split(' ')                                                                 # Split the message to extract the PMU-message ID
-    ID = int(get_id[0].replace("b'", ""))
+    ID = int(get_id[0].replace("b'", ""))                                                   
     ID = ID + 250                                                                           # PMU message ID
     buffer_HMAC.update(msg.encode("utf-8"))                                                 # Update the hmac with the new PMU message
     msg_counter = msg_counter + 1                                                           # Increments the message counter.
@@ -84,7 +84,7 @@ while True:
         print("Calculated Buffer HMAC :", buffer_HMAC.hexdigest(), "\n")
         buff = "buffer " + buffer_HMAC.hexdigest()
         buff = str.encode(buff)
-        hmac_UDP.sendto(buff, controll_address)
+        hmac_UDP.sendto(buff, controll_address)                                             # Sends the buffer hmac to controll_pc
         buffer_HMAC = hmac.new(key, b'', hashlib.sha256,)                                   # Resets the HMAC
         msg_counter = 0                                                                     # Resets the message counter
 
@@ -95,4 +95,4 @@ while True:
         print("Calculated Single HMAC :", single_HMAC.hexdigest(), "for msg with ID: ", ID, "\n")       
         single = "single " + single_HMAC.hexdigest()
         single = str.encode(single)
-        hmac_UDP.sendto(single, controll_address)
+        hmac_UDP.sendto(single, controll_address)                                           # Sends the single hmac to controll_pc
