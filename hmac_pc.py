@@ -16,7 +16,7 @@ controll_address =  ("127.0.0.1", 9001)
 hmac_UDP = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 hmac_UDP.bind(("127.0.0.1", 8001))
 PMU_msg = hmac_UDP.recvfrom(1024)
-print("fikk pmu melding")
+
 
 
 msg_counter = 0                                         # Counter for the number of received messages from the PMU
@@ -60,7 +60,7 @@ while key_exchange:
         controll_PK = int(msg.decode("utf-8"))                                              # Exctract the controll_pc public key and create a shared session key
         shared_session_key = (controll_PK ** private_key) % q                               # Shared secret key, 
         key = bytes(BBS(shared_session_key), "latin-1")                                     # Generate a longer and more secure key with blumblumshub algorithm, session key as seed
-        print("Shared sesion established! \n")
+        print("Shared session established! \n")
         buffer_HMAC = hmac.new(key, b'', hashlib.sha256,)                                   # Set BBS generated key as HMAC key
         single_HMAC = hmac.new(key, b'', hashlib.sha256,)                                   # Set BBS generated key as HMAC key
         key_exchange = False    
