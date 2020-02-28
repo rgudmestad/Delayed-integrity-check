@@ -14,11 +14,10 @@ controll_pc.bind((host, port))
 controll_pc.listen(10)   
 
 
-localIP     = "127.0.0.1"
-localPort   = 9001
 controll_UDP = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-controll_UDP.bind((localIP, localPort))
-controll_UDP = controll_UDP.recvfrom(1024)
+controll_UDP.bind(("127.0.0.1", 9001))
+PMU_msg = controll_UDP.recvfrom(1024)
+print("fikk pmu melding")
 
 
 msg_counter = 0                                         # Counter for the number of received messages from the PMU
@@ -69,41 +68,41 @@ while key_exchange:
 
 # Handels messages from the PMU and hmacs from the HMAC pc 
 while True:
-    controll_UDP = controll_UDP.recvfrom(1024)
-    msg = format(controll_UDP[0])
-    addr = controll_UDP[1]
+    datagram = controll_UDP.recvfrom(1024)
+    msg = format(datagram[0])
+    addr = format(datagram[1])
+    port = addr.split(" ")
+    msg_type = msg.split(" ")
 
-# PMU messages 
-    if addr[1] != 8051:
-        if addr[1] != 8052:                                                             # If the controll PC receives data from the PMU do:
-            get_id = msg.split(' ')                                                                 # Split the message to extract the PMU-message ID
-            ID = int(get_id[0].replace("b'", ""))
-            ID = ID + 250                                                                           # PMU message ID
-            buffer_HMAC.update(msg.encode("utf-8"))                                                 # Update the hmac with the new PMU message
-            msg_counter = msg_counter + 1                                              # Update message counter
-            if ID % 500 == 0:                                                           # Generates a single hmac for each 500th message
-                single_HMAC = hmac.new(key, b'', hashlib.sha256,)                       # Reset the hmac
-                single_HMAC.update(msg.encode("utf-8"))                                                 # calculate a hmac for a single messages
-                print("HMAC for ID: ", ID, " calculated")
-
-# Buffer hmac messages
-    if addr[1] == 8052: #and msg_counter == 500:                                                                 # Checks if the HMAC for the last 1000 PMU messages match
+    if msg_type[0].__contains__("buffer"):
+        hmac = format(msg_type[1]).replace("'","")
         print("HMAC's for the last 500 messages:")
-        print("HMAC_PC calcualted HMAC:     ", msg.decode("utf-8"))
+        print("HMAC_PC calcualted HMAC:     ", hmac)
         print("Controll_PC calculated HMAC: ", buffer_HMAC.hexdigest())
-        if buffer_HMAC.hexdigest().encode("utf-8") == msg:                              # Check if mac_pc and controll_pc have generated identical hmac's
+        if buffer_HMAC.hexdigest() == hmac:                              # Check if mac_pc and controll_pc have generated identical hmac's
             print("Buffer HMAC match \n")                                               # Print if match
         else:
             print("Buffer HMAC missmatch! \n")                                          # Print if missmatch
         buffer_HMAC = hmac.new(key, b'', hashlib.sha256,)                               # Resets the hmac
         msg_counter = 0
-        
 
-# Single hmac messages
-    if addr[1] == 8051:                                                                 # Receive single message hmacs from the HMAC PC
-        print("Single hmac_pc calcualted HMAC:     ", msg.decode("utf-8"))          
+    if msg_type[0].__contains__("single"):
+        hmac = format(msg_type[1]).replace("'","")                                                                # Receive single message hmacs from the HMAC PC
+        print("Single hmac_pc calcualted HMAC:     ", hmac)          
         print("Single controll_pc calculated HMAC: ", single_HMAC.hexdigest())
-        if single_HMAC.hexdigest().encode("utf-8") == msg:                              # Check if mac_pc and controll_pc have generated identical hmac's
+        if single_HMAC.hexdigest() == hmac:                              # Check if mac_pc and controll_pc have generated identical hmac's
             print("Single HMAC match! \n")                                              # print if match                
         else:
-            print("Single HMAC missmatch! \n")                                          # print if missmatch
+            print("Single HMAC missmatch! \n")     
+
+# PMU messages 
+    else:                                                            # Split the message to extract the PMU-message ID
+        ID = int(msg_type[0].replace("b'", ""))
+        ID = ID + 250                                                                           # PMU message ID
+        buffer_HMAC.update(msg.encode("utf-8"))                                                 # Update the hmac with the new PMU message
+        msg_counter = msg_counter + 1                                              # Update message counter
+        if ID % 500 == 0:                                                           # Generates a single hmac for each 500th message
+            single_HMAC = hmac.new(key, b'', hashlib.sha256,)                       # Reset the hmac
+            single_HMAC.update(msg.encode("utf-8"))                                                 # calculate a hmac for a single messages
+            print("HMAC for ID: ", ID, " calculated")
+
