@@ -69,10 +69,13 @@ while True:
 # PMU message handler
     if  (msg.__contains__("buffer") == False):
         if (msg.__contains__("single") == False):                                        
-            ID = msg.replace("No.,","")
-            ID = ID.split("Time")                                                        # Split the message to extract the PMU-message ID
-            ID = ID[0]
-            ID = ID.replace("b'","")
+            #ID = msg.replace("No.,","")
+            #ID = ID.split("Time")                                                        # Split the message to extract the PMU-message ID
+            #ID = ID[0]
+            #ID = ID.replace("b'","")
+            ID = str.encode(msg)
+            ID = ID.decode("utf-8")
+            ID = ID.split("Frame ")[1].split(":")[0]
             ID = int(ID)                                                                 # PMU message ID
             ID = ID + 250
             buffer_HMAC.update(msg.encode("utf-8"))                                      # Update the hmac with the new PMU message
