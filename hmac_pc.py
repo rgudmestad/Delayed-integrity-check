@@ -73,10 +73,13 @@ while True:
     addr = format(datagram[1])                                                              # addr = (ip, port)
    
 # PMU messages
-    ID = msg.replace("No.,","")                                                             # Exstracts the ID from the GOOSE message, and convertes into an integer
-    ID = ID.split("Time")                                                                   # --"--
-    ID = ID[0]                                                                              # --"--
-    ID = ID.replace("b'","")                                                                # --"--
+    #ID = msg.replace("No.,","")                                                             # Exstracts the ID from the GOOSE message, and convertes into an integer
+    #ID = ID.split("Time")                                                                   # --"--
+    #ID = ID[0]                                                                              # --"--
+    #ID = ID.replace("b'","")                                                                # --"--
+    ID = str.encode(msg)
+    ID = ID.decode("utf-8")
+    ID = ID.split("Frame ")[1].split(":")[0]
     ID = int(ID)                                                                            # --"--
     ID = ID + 250                                                                           # --"--
     buffer_HMAC.update(msg.encode("utf-8"))                                                 # Update the hmac with the new PMU message
