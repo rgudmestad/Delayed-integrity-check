@@ -17,4 +17,4 @@ To run the code, open 3 diffrent cmd/powershell windows. run the scripts in the 
 
 remember to have the dataset (packets.txt) in the same folder as PMU.py
 
-SIDENOTE: packets.txt only contain 20% of the data from that was used on the original dataset, due to file-size constraint on Github
+SIDENOTE: packets.txt only contain 20% of the data from that was used on the original dataset, due 100mb to file-size constraint on Github
