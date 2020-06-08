@@ -4,7 +4,7 @@ import hashlib
 from random import randrange
 import math
 import random
-import time
+
 
 # sets up and binds an IP address/Port to hmac_pc for Key distribution, Uses TCP
 controll_pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
@@ -115,7 +115,6 @@ while True:
 
 # HMAC_pc single hmac message handler
     if msg.__contains__("single"):                                                      # Checks if the message is a single hmac
-        t = time.time()
         hmac_single = msg.replace("single","")                                          # Message formating
         hmac_single = hmac_single.replace("b' ","")
         hmac_single = hmac_single.replace("'","")
@@ -123,7 +122,7 @@ while True:
         print("-----------------Single-HMAC-------------------")
         for k, v in single_dict.items():
             if hmac_single == v:
-                print("MATCH for ID:", k, "Time = :", time.time() - t)                                               # print if match
+                print("MATCH for ID:", k)                                               # print if match
                 RandomKey = int(BBS(RandomKey, 5))
                 random.seed(RandomKey)
                 randval = random.randrange(0,250)   
