@@ -4,6 +4,7 @@ import hashlib
 from random import randrange
 import math
 import random
+import time
 
 # sets up and binds an IP address/Port to hmac_pc for Key distribution, Uses TCP
 controll_pc = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
@@ -16,6 +17,7 @@ controll_pc.listen(10)
 controll_UDP = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)     # Controll_pc UDP socket
 controll_UDP.bind(("127.0.0.1", 9001))                                          # Address of the UDP lister for controll PC
 
+buffer_string = ""                                                              # holds the buffered GOOSe messages
 firstID = 1
 single_dict = {}
 msg_counter = 0                                                                 # Counter for the number of received messages from the PMU
@@ -49,7 +51,7 @@ while key_exchange:
         DH = msg.decode("utf-8").split(' ')                                             # DH[1] = hmac pc public key
         private_key = randrange(10000)                                                  # Controll_PC private key
         public_key_controll = (g ** private_key) % q                                    # Controll_PC public key
-        print("\n Public key calculated and sent to HMAC PC ", public_key_controll)
+        print("\n Public key calculated and sent to HMAC PC ")
         send_key = socket.socket(socket.AF_INET, socket.SOCK_STREAM)                    # sets up and binds an IP address/Port used to send the public key to hmac_PC
         send_key.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)                  # sets up and binds an IP address/Port used to send the public key to hmac_PC
         send_key.bind((host, 50050))                                                    # Binds an IP address/Port used to send the public key to hmac_PC
@@ -62,10 +64,8 @@ while key_exchange:
         randval = random.randrange(0,250)    
         key = BBS(shared_session_key, 20)                                               # Generate a longer and more secure key with blumblumshub algorithm, session key as seed
         print(" Shared session key established! \n")
-        buffer_HMAC = hmac.new(bytes(key), b'', hashlib.sha256,)                        # Set BBS generated key as HMAC key
         single_HMAC = hmac.new(bytes(key), b'', hashlib.sha256,)                        # Set BBS generated key as HMAC key
         key_exchange = False
-
 
 # Handels messages from the PMU and hmacs from the HMAC pc 
 while True:
@@ -83,7 +83,7 @@ while True:
             if ID % 2 == 1:
                 ID = ID + 1
                 realID = 1
-            buffer_HMAC.update(msg.encode("utf-8"))                                     # Update the hmac with the new PMU message
+            buffer_string = buffer_string + msg
             msg_counter = msg_counter + 1                                               # Update message counter
             if ID % randval == 0:                                                       # Generates a single hmac for each 500th message
                 single_HMAC = hmac.new(bytes(key), b'', hashlib.sha256,)                # Reset the hmac
@@ -93,6 +93,8 @@ while True:
 
 # HMAC_pc buffer hmac message handler
     if msg.__contains__("buffer"):                                                      # Checks if the message is a buffer hmac
+        buffer_HMAC = hmac.new(bytes(key), buffer_string.encode("utf-8"), hashlib.sha256,) # Create a buffer-HMAC
+        buffer_string = ""                                                              # resets the HMAC buffer
         Buffer_count = Buffer_count + 1
         hmac_buffer = msg.replace("buffer","")                                          # Message formating
         hmac_buffer = hmac_buffer.replace("b' ","")
@@ -113,6 +115,7 @@ while True:
 
 # HMAC_pc single hmac message handler
     if msg.__contains__("single"):                                                      # Checks if the message is a single hmac
+        t = time.time()
         hmac_single = msg.replace("single","")                                          # Message formating
         hmac_single = hmac_single.replace("b' ","")
         hmac_single = hmac_single.replace("'","")
@@ -120,7 +123,7 @@ while True:
         print("-----------------Single-HMAC-------------------")
         for k, v in single_dict.items():
             if hmac_single == v:
-                print("MATCH for ID:", k)                                               # print if match
+                print("MATCH for ID:", k, "Time = :", time.time() - t)                                               # print if match
                 RandomKey = int(BBS(RandomKey, 5))
                 random.seed(RandomKey)
                 randval = random.randrange(0,250)   
