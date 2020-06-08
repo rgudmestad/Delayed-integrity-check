@@ -11,11 +11,12 @@ hmac_pc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 hmac_pc.bind((host, 8000))                                  
 hmac_pc.listen(10)
 controll_pc_port = 9000
-controll_address =  ("127.0.0.1", 9001)                                    # address of the UDP lister for controll PC
+controll_address =  ("127.0.0.1", 9001)                                     # address of the UDP lister for controll PC
 hmac_UDP = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)     # hmac_pc UDP socket
 hmac_UDP.bind(("127.0.0.1", 8001))                                          # Binds the port/ip
 
-firstID = 1
+buffer_string = ""                                      # variable holding all the buffered GOOSE messages
+firstID = 1     
 msg_counter = 0                                         # Counter for the number of received messages from the PMU
 q = 2971                                                # Diffe-Hellman public parameter
 g = 3                                                   # Diffe-Hellman public parameter
@@ -57,12 +58,9 @@ while key_exchange:
         random.seed(RandomKey)
         randval = random.randrange(0,250)
         key = BBS(shared_session_key, 20)                                                   # Generate a longer and more secure key with blumblumshub algorithm, session key as seed
-        print(" Shared session established! \n", controll_PK)
-        buffer_HMAC = hmac.new(bytes(key), b'', hashlib.sha256,)                            # Set BBS generated key as HMAC key
+        print(" Shared session established! \n")
         single_HMAC = hmac.new(bytes(key), b'', hashlib.sha256,)                            # Set BBS generated key as HMAC key
         key_exchange = False    
-
-
 # Handels messages from the PMU
 while True:
     datagram = hmac_UDP.recvfrom(1024)                                                      # listens for UDP messages from the pmu
@@ -78,25 +76,26 @@ while True:
     if ID % 2 == 1:
         ID = ID + 1
         realID = 1
-    buffer_HMAC.update(msg.encode("utf-8"))                                                 # Update the hmac with the new PMU message
+    buffer_string = buffer_string + msg
     msg_counter = msg_counter + 1                                                           # Increments the message counter.
 
 # Buffer hmac messages
     if msg_counter == 250:                                                                  # Generates a HMAC based on the 500 last PMU messages
         print("Buffer HMAC for ID", firstID,"-", ID-realID, "\n \n")
+        buffer_HMAC = hmac.new(bytes(key), buffer_string.encode("utf-8"), hashlib.sha256,)  # Create the buffer-HMAC
+        buffer_string = ""                                                                  # Resets the HMAC buffer
         buff = "buffer " + buffer_HMAC.hexdigest()
-        buff = str.encode(buff)
+        buff = str.encode(buff)                                                             # adds "buffer" as an identifier
         hmac_UDP.sendto(buff, controll_address)                                             # Sends the buffer hmac to controll_pc
-        buffer_HMAC = hmac.new(bytes(key), b'', hashlib.sha256,)                            # Resets the HMAC
         msg_counter = 0                                                                     # Resets the message counter
         firstID = ID-realID
 
 # Single hmac messages
     if ID % randval == 0:                                                                   # Sends a HMAC based on an indivudual PMU message. Does this for each 500th message (uses ID to identify the message)
         single_HMAC = hmac.new(bytes(key), b'', hashlib.sha256,)                            # Resets the HMAC
-        single_HMAC.update(msg.encode("utf-8"))                                             # Update the single message HMAC with the last recived GOOSE message (with id devidable by 500)
+        single_HMAC.update(msg.encode("utf-8"))                                             # Update the single message HMAC with the last recived GOOSE message 
         print("Single HMAC for ID:", ID-realID, "\n \n")       
-        single = "single " + single_HMAC.hexdigest()                                        # Adds "single" to the message so that the controll pc knows what type of message it is
+        single = "single " + single_HMAC.hexdigest()                                        # Adds "single" to the message so that the controll pc knows what type of HMAC it is
         single = str.encode(single)
         hmac_UDP.sendto(single, controll_address)                                           # Sends the single hmac to controll_pc
         RandomKey = int(BBS(RandomKey, 5))
