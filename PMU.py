@@ -10,7 +10,7 @@ hmac_address =  ("127.0.0.1", 8001)                                         # IP
 controll_address =  ("127.0.0.1", 9001)                                     # Ip address and port of Control-pc
 pmu= socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)           # Creates an UDP socket to send from
 
-with open('SVpackets.txt') as f:                                            # Opens txt file with GOOSE messages
+with open('packets.txt') as f:                                            # Opens txt file with GOOSE messages
     mylist = list(f)                                                        # Creates of the text file
 GOOSE_Array =[]                                                             # Creates an empty list
 for j in range(0, len(mylist)):                                             # Iterates over the text file, adding each individual GOOSE message as a element to GOOSE_Array 
